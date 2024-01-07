@@ -98,28 +98,39 @@ async def slash_command_question(interaction: discord.Interaction):
 
     if question : 
 
-        view = MyView(reponsesList,solution)
+        timer_value = 11
+
+        view = MyView(reponsesList,solution,timer_value)
 
         embed,file = creation_embed(question,reponsesList,categorieChosen,sousCategorieChosen,difficultyChosen)
 
         message = await interaction.followup.send(embed=embed, view=view, file =file)
    
-        timer_value = 10  # Valeur initiale du timer
 
-        # Boucle de mise à jour du timer
+
         for i in range(timer_value - 1, 0, -1):
-            # Mettre à jour le champ TIMER
-            embed.set_field_at(8, name="**TIMER**", value=str(i), inline=True)
+            if i%2 == 0 : 
+                embed.set_field_at(2, name="**TIMER**", value=transform_number_to_emoji_2_digits(i) + "⌛" , inline=True)
+            else :
+                embed.set_field_at(2, name="**TIMER**", value=transform_number_to_emoji_2_digits(i) + "⏳" , inline=True)
+
             await message.edit(embed=embed)
             await asyncio.sleep(1)
 
-        await asyncio.sleep(10)
+        embed.set_field_at(2, name="**TIMER**", value="🛑", inline=True)
+        await message.edit(embed=embed)
 
-        #await message.delete()
+        solutionList = creation_results(view)
 
-        await interaction.followup.send(solution)
+        print("[INFO]")
+
+        embed_answer,file = creation_embed_answer(solution,solutionList)
+
+
+        await interaction.followup.send(embed=embed_answer, file =file)
 
     else : 
+
         await interaction.followup.send("error")
 
 bot.run(token)

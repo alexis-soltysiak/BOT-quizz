@@ -21,7 +21,7 @@ import logging
 import random
 from typing import Any
 from discord import Embed, File
-
+import datetime
 
 ##################################################################################
 # CONFIGURATION DOTENV
@@ -125,10 +125,12 @@ def json_lecture(jsonAnswer):
     
     # Essayez de convertir le contenu en JSON
     try:
-
         if jsonAnswer[0] == "j" :
-            jsonAnswer = jsonAnswer[3:]
-            
+            jsonAnswer = jsonAnswer[4:]
+        elif jsonAnswer[0] == "\n" :
+            jsonAnswer = jsonAnswer[5:]
+        
+        print(jsonAnswer)
         responseData = json.loads(jsonAnswer)
 
         # Supprimer la clé 'answer'
@@ -166,6 +168,20 @@ def json_lecture(jsonAnswer):
         return None,None,None,None
 
 
+def creation_results(view):
+
+    listResult = view.listAnswer
+
+    print(listResult)
+
+    def tri_key(element):
+        return (0 if element[1] else 1, element[2])
+
+    sorted_results = sorted(listResult, key=tri_key)
+
+    return sorted_results
+
+
 def creation_embed(question,reponsesList,categorie,sousCategorie,difficulty):
     
     image_path = "images/bk.png"   
@@ -174,21 +190,24 @@ def creation_embed(question,reponsesList,categorie,sousCategorie,difficulty):
 
 
 
-    embed = Embed(title="🌎 GEOBOT 🐬", description='', color=random_color)  # Vous pouvez changer la couleur
+    embed = Embed(title="🌎 GEOBOT 🐬", description='', color=random_color) 
 
-    embed.add_field(name="**Catégories **", value=categorie, inline=True)
-    embed.add_field(name="**Sous-Catégories**", value=sousCategorie, inline=True)
-    embed.add_field(name="**Difficulté**", value=difficulty + "\n", inline=True)
-
-    embed.add_field(name="**Question**", value=question, inline=False)
-
-    # Ajouter les réponses à l'embed, deux par ligne
-    embed.add_field(name="REPONSE A)", value=reponsesList[0] + "\n", inline=True)
-    embed.add_field(name="REPONSE B)", value=reponsesList[1] + "\n", inline=True)
-    embed.add_field(name="REPONSE C)", value=reponsesList[2] + "\n", inline=True)
-    embed.add_field(name="REPONSE D)", value=reponsesList[3] + "\n", inline=True)
+    embed.add_field(name=" ", value=" ", inline=True)
+    embed.add_field(name=" ", value=" ", inline=True)
 
     embed.add_field(name="**TIMER**", value=str(0), inline=True)
+
+    #embed.add_field(name="**Catégories **", value=categorie, inline=True)
+    #embed.add_field(name="**Sous-Catégories**", value=sousCategorie, inline=True)
+    #embed.add_field(name="**Difficulté**", value=difficulty + "\n", inline=True)
+
+    embed.add_field(name="**Question**", value="```" + question + "```" , inline=False)
+
+    embed.add_field(name="A.", value=reponsesList[0] + "\n", inline=True)
+    embed.add_field(name="B.", value=reponsesList[1] + "\n", inline=False)
+    embed.add_field(name="C.", value=reponsesList[2] + "\n", inline=True)
+    embed.add_field(name="D.", value=reponsesList[3] + "\n", inline=False)
+
 
 
     embed.set_image(url='attachment://image.jpg')
@@ -198,6 +217,92 @@ def creation_embed(question,reponsesList,categorie,sousCategorie,difficulty):
     return embed,file
 
 
+def r_just_string(string,size):
+    return string.rjust(size)
+
+
+def transform_number_to_emoji_5_digits(score):
+    listEmojiDigit = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"]
+
+    score_int = int(round(score))  # Arrondissez le score si c'est un nombre à virgule flottante
+    score_str = str(score_int).zfill(5)
+
+    score_str = score_str.lstrip('0').rjust(5, '⬛')
+
+    emoji_score = ''.join(listEmojiDigit[int(digit)] if digit.isdigit() else digit for digit in score_str)
+
+    return emoji_score
+
+
+
+def transform_number_to_emoji_2_digits(score):
+    listEmojiDigit = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"]
+
+    score_int = int(round(score))  # Arrondissez le score si c'est un nombre à virgule flottante
+    score_str = str(score_int).zfill(2)
+
+    # Remplacer les zéros de tête par l'emoji ⬛
+    score_str = score_str.lstrip('0').rjust(2, '⬛')
+
+    # Remplacer chaque chiffre par son emoji correspondant
+    emoji_score = ''.join(listEmojiDigit[int(digit)] if digit.isdigit() else digit for digit in score_str)
+
+    return emoji_score
+
+def transform_number_to_emoji(score):
+
+    listEmojiDigit = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"]
+    score_str = str(score)
+    emoji_score = ''.join(listEmojiDigit[int(digit)] for digit in score_str)
+
+    return emoji_score
+
+def score_calculation(reponse,temps):
+    if reponse == False:
+        return transform_number_to_emoji_5_digits(0)
+    else :
+        score = 1000 * (11-temps)
+        if score < 0 :
+            score = 0
+        print(temps,score)
+        return transform_number_to_emoji_5_digits(1000 * (10-temps)) 
+
+
+def creation_embed_answer(solution,solutionList):
+    
+    image_path = "images/bk.png"   
+    colors = [0x1abc9c, 0x3498db, 0x9b59b6, 0xe74c3c, 0xf1c40f, 0x2ecc71]
+    random_color = chose_random_from_list(colors)
+
+
+
+    embed = Embed(title="🌎 GEOBOT 🐬", description='', color=random_color)  # Vous pouvez changer la couleur
+
+
+    embed.add_field(name="**Solution**", value="```" + solution + "```" , inline=False)
+
+    embed.add_field(name="**Place**", value= " " , inline=True)
+    embed.add_field(name="**Nom**", value=" ", inline=True)
+    embed.add_field(name="**Score**", value=" " , inline=True)
+
+    index = 0
+    for nom,reponse,temps in solutionList:
+            
+        index +=1
+        score = score_calculation(reponse,temps)
+        reponseEmoji = "✅" if reponse == True else "❌"
+
+        embed.add_field(name=" ", value= f"{transform_number_to_emoji_2_digits(index)}" , inline=True)
+        embed.add_field(name=" ", value= f"{str(nom.name)}" , inline=True)
+        embed.add_field(name=" ", value= f"{score} " , inline=True)
+
+  
+    embed.set_image(url='attachment://image.jpg')
+        
+    # Création de l'objet File
+    file = File(image_path, filename='image.jpg')
+    return embed,file
+
 
 
 ##################################################################################
@@ -205,13 +310,16 @@ def creation_embed(question,reponsesList,categorie,sousCategorie,difficulty):
 ##################################################################################
 
 class MyView(discord.ui.View):
-    def __init__(self,reponsesList,solution):
+    def __init__(self,reponsesList,solution,timer_value):
         super().__init__()
 
 
         self.reponsesList = reponsesList
         self.solution = solution
-        self.alreadyAnswered = set()  # Utiliser un ensemble pour enregistrer les utilisateurs qui ont déjà répondu
+        self.alreadyAnswered = set() 
+        self.listAnswer = []
+        self.start_time = datetime.datetime.now()
+        self.timer_value = timer_value
 
         # Ajouter les boutons avec des styles différents
         self.add_item(discord.ui.Button(style=discord.ButtonStyle.grey, custom_id=reponsesList[0], label="A"))
@@ -221,21 +329,34 @@ class MyView(discord.ui.View):
 
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-
+        
+        time_of_answer = datetime.datetime.now() - self.start_time
+        timer_value_delta = datetime.timedelta(seconds=self.timer_value)
+        if datetime.datetime.now() - self.start_time > timer_value_delta : 
+            return True
         user_id = interaction.user.id
         userName =  interaction.user
 
         # Vérifier si l'utilisateur a déjà répondu
         if user_id in self.alreadyAnswered:
-            await interaction.response.send_message("Vous avez déjà répondu à cette question sale merde.", ephemeral=True)
+            await interaction.response.send_message("Vous avez déjà répondu à cette question", ephemeral=True)
             return False
 
         self.alreadyAnswered.add(user_id)  # Marquer l'utilisateur comme ayant répondu
 
+
+        response_time_seconds = time_of_answer.total_seconds()  # Temps de réponse en secondes
+
         # Vérifier si la réponse est correcte
         if interaction.data['custom_id'] == self.solution:
-            await interaction.response.send_message(f"{userName} ✅ Bonne réponse! ✅", ephemeral=False)
+            self.listAnswer.append([userName,True,response_time_seconds])
+            #await interaction.response.send_message(f"{userName} ✅ Bonne réponse! ✅", ephemeral=True)
+
         else:
-            await interaction.response.send_message(f"{userName} ❌Mauvaise réponse!❌", ephemeral=False)
+            self.listAnswer.append([userName,False,response_time_seconds])
+                  
+                  
+        await interaction.response.send_message(f"Tu as voté {interaction.data['custom_id']} en {response_time_seconds}s" , ephemeral=True)
 
         return True
+    
