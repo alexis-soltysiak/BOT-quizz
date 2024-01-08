@@ -22,6 +22,8 @@ import random
 from typing import Any
 from discord import Embed, File
 import datetime
+import csv
+import pandas as pd
 
 ##################################################################################
 # CONFIGURATION DOTENV
@@ -125,11 +127,14 @@ def json_lecture(jsonAnswer):
     
     # Essayez de convertir le contenu en JSON
     try:
-        if jsonAnswer[0] == "j" :
+        if jsonAnswer[0] != "{": 
+            jsonAnswer = jsonAnswer[jsonAnswer.find("{"):]
+        """
+        elif jsonAnswer[0] == "j" :
             jsonAnswer = jsonAnswer[4:]
         elif jsonAnswer[0] == "\n" :
             jsonAnswer = jsonAnswer[5:]
-        
+        """
         print(jsonAnswer)
         responseData = json.loads(jsonAnswer)
 
@@ -257,18 +262,67 @@ def transform_number_to_emoji(score):
 
     return emoji_score
 
-def score_calculation(reponse,temps):
+def score_calculation(reponse,temps,temps_max):
     if reponse == False:
         return transform_number_to_emoji_5_digits(0)
     else :
-        score = 1000 * (11-temps)
+        score = 1000 * (temps_max-temps)
         if score < 0 :
             score = 0
         print(temps,score)
         return transform_number_to_emoji_5_digits(1000 * (10-temps)) 
 
 
-def creation_embed_answer(solution,solutionList):
+def add_question_answers_solution_to_db(question, reponsesList, solution):
+    # Chemins des fichiers CSV
+    questionsFilePath = 'bdd/questions.csv'
+    answersFilePath = 'bdd/answers.csv'
+    solutionsFilePath = 'bdd/solution.csv'
+
+    try:
+        df_questions = pd.read_csv(questionsFilePath)
+        max_question_id = df_questions['id'].max()
+    except FileNotFoundError:
+        max_question_id = 0
+
+    new_question_id = max_question_id + 1
+
+    with open(questionsFilePath, 'a', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        if max_question_id == 0:
+            writer.writerow(['id', 'question'])
+        writer.writerow([new_question_id, question])
+
+    try:
+        df_answers = pd.read_csv(answersFilePath)
+        max_answer_id = df_answers['id'].max()
+    except FileNotFoundError:
+        max_answer_id = 0
+
+    with open(answersFilePath, 'a', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        if max_answer_id == 0:
+            writer.writerow(['id', 'id_question', 'answer', 'answer_letter'])
+
+        for index, answer in enumerate(reponsesList, start=1):
+            new_answer_id = max_answer_id + index
+            answer_letter = chr(64 + index)  # 65 est le code ASCII pour 'A'
+            writer.writerow([new_answer_id, new_question_id, answer, answer_letter])
+
+    with open(solutionsFilePath, 'a', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        try:
+            with open(solutionsFilePath, 'r') as f:
+                if f.readline().strip() == '':
+                    writer.writerow(['id', 'id_question', 'solution'])
+        except FileNotFoundError:
+            writer.writerow(['id', 'id_question', 'solution'])
+
+        # Écriture de la solution
+        writer.writerow([new_question_id, new_question_id, solution])
+
+
+def creation_embed_answer(solution,solutionList,temps_max):
     
     image_path = "images/bk.png"   
     colors = [0x1abc9c, 0x3498db, 0x9b59b6, 0xe74c3c, 0xf1c40f, 0x2ecc71]
@@ -289,7 +343,7 @@ def creation_embed_answer(solution,solutionList):
     for nom,reponse,temps in solutionList:
             
         index +=1
-        score = score_calculation(reponse,temps)
+        score = score_calculation(reponse,temps,temps_max)
         reponseEmoji = "✅" if reponse == True else "❌"
 
         embed.add_field(name=" ", value= f"{transform_number_to_emoji_2_digits(index)}" , inline=True)
@@ -332,8 +386,10 @@ class MyView(discord.ui.View):
         
         time_of_answer = datetime.datetime.now() - self.start_time
         timer_value_delta = datetime.timedelta(seconds=self.timer_value)
+        """
         if datetime.datetime.now() - self.start_time > timer_value_delta : 
             return True
+        """
         user_id = interaction.user.id
         userName =  interaction.user
 
@@ -356,7 +412,47 @@ class MyView(discord.ui.View):
             self.listAnswer.append([userName,False,response_time_seconds])
                   
                   
-        await interaction.response.send_message(f"Tu as voté {interaction.data['custom_id']} en {response_time_seconds}s" , ephemeral=True)
+        await interaction.response.send_message(f"Tu as voté {interaction.data['custom_id']} en {response_time_seconds - 1}s" , ephemeral=True)
 
         return True
     
+
+class MyViewAnswer(discord.ui.View):
+
+    def __init__(self,question,reponsesList,solution,timer_value):
+        super().__init__()
+
+        self.question = question
+        self.reponsesList = reponsesList
+        self.solution = solution
+        self.start_time = datetime.datetime.now()
+        self.timer_value = timer_value
+      
+        self.add_item(discord.ui.Button(style=discord.ButtonStyle.green, custom_id="True", label="ADD"))
+        self.add_item(discord.ui.Button(style=discord.ButtonStyle.red, custom_id="False", label="DEL"))
+
+    def disable_all_buttons(self):
+        """Désactiver tous les boutons dans la vue."""
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+                print(item)
+        print("eee")
+
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+
+        
+        if interaction.data['custom_id'] == "True":
+            add_question_answers_solution_to_db(self.question, self.reponsesList, self.solution)
+            self.disable_all_buttons()
+
+            await interaction.message.edit(view=self)
+            await interaction.response.send_message(f" ✅ Question ajoutée ✅", ephemeral=True)
+
+        else:
+            self.disable_all_buttons()
+            await interaction.message.edit(view=self)
+            await interaction.response.send_message(f"  Question nulle ", ephemeral=True)
+
+        return True

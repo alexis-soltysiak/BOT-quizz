@@ -1,0 +1,21 @@
+id,id_question,answer,answer_letter
+1,1,Hanbok,A
+2,1,Sari,B
+3,1,Qipao,C
+4,1,Kimono,D
+5,2,Element,A
+6,2,Volcom,B
+7,2,Vans,C
+8,2,DC Shoes,D
+9,3,Une méthode d'entrainement des réseaux de neurones artificiels.,A
+10,3,Un algorithme de recherche dans les jeux.,B
+11,3,Une technique de compression de données.,C
+12,3,Une approche de résolution de problèmes basée sur des essais successifs.,D
+13,4,Action,A
+14,4,Romance,B
+15,4,Comédie,C
+16,4,Horreur,D
+17,5,Émincer,A
+18,5,Dégorger,B
+19,5,Chinoiser,C
+20,5,Mariner,D

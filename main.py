@@ -98,14 +98,15 @@ async def slash_command_question(interaction: discord.Interaction):
 
     if question : 
 
-        timer_value = 11
+        timer_value = 10
 
         view = MyView(reponsesList,solution,timer_value)
+
+        viewAnswer = MyViewAnswer(question,reponsesList,solution,timer_value)
 
         embed,file = creation_embed(question,reponsesList,categorieChosen,sousCategorieChosen,difficultyChosen)
 
         message = await interaction.followup.send(embed=embed, view=view, file =file)
-   
 
 
         for i in range(timer_value - 1, 0, -1):
@@ -118,16 +119,22 @@ async def slash_command_question(interaction: discord.Interaction):
             await asyncio.sleep(1)
 
         embed.set_field_at(2, name="**TIMER**", value="🛑", inline=True)
-        await message.edit(embed=embed)
+        for item in view.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+
+        # Mettre à jour le message avec la vue désactivée
+        await message.edit(embed=embed, view=view)
+
 
         solutionList = creation_results(view)
 
         print("[INFO]")
 
-        embed_answer,file = creation_embed_answer(solution,solutionList)
+        embed_answer,file = creation_embed_answer(solution,solutionList,timer_value)
 
 
-        await interaction.followup.send(embed=embed_answer, file =file)
+        await interaction.followup.send(embed=embed_answer, view = viewAnswer,file =file)
 
     else : 
 

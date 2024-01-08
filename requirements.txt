@@ -3,3 +3,4 @@ openai
 dotenv
 discord
 asyncio
+pandas

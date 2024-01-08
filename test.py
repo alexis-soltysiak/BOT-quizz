@@ -1,18 +1,15 @@
 from functions import *
 
 jsonAnswer ="""
+
 json
 {
-  "question": "Quel skieur alpin possède le plus de médailles d'or olympiques ?",
-  "reponses": [
-    "Bode Miller",
-    "Ingemar Stenmark",
-    "Sven Kramer",
-    "Jean-Claude Killy"
-  ],
-  "solution": "Jean-Claude Killy",
+  "question": "Quel compositeur a écrit la Symphonie n°9 en ré mineur, également connue sous le nom de la Neuvième Symphonie ?",
+  "reponses": ["Mozart", "Beethoven", "Bach", "Haydn"],
+  "solution": "Beethoven",
   "temps": 3
 }
+
 
 """
 json_lecture(jsonAnswer)
