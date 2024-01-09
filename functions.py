@@ -23,6 +23,7 @@ from typing import Any
 from discord import Embed, File
 import datetime
 import csv
+import time
 import pandas as pd
 
 ##################################################################################
@@ -40,6 +41,8 @@ client = OpenAI(
 ##################################################################################
 # DEFINITIONS
 ##################################################################################
+
+last_call_time = 0
 
 def prompt_to_chat_gpt_api(prompt):
 
@@ -135,7 +138,7 @@ def json_lecture(jsonAnswer):
         elif jsonAnswer[0] == "\n" :
             jsonAnswer = jsonAnswer[5:]
         """
-        print(jsonAnswer)
+
         responseData = json.loads(jsonAnswer)
 
         # Supprimer la clé 'answer'
@@ -177,8 +180,6 @@ def creation_results(view):
 
     listResult = view.listAnswer
 
-    print(listResult)
-
     def tri_key(element):
         return (0 if element[1] else 1, element[2])
 
@@ -186,40 +187,6 @@ def creation_results(view):
 
     return sorted_results
 
-
-def creation_embed(question,reponsesList,categorie,sousCategorie,difficulty):
-    
-    image_path = "images/bk.png"   
-    colors = [0x1abc9c, 0x3498db, 0x9b59b6, 0xe74c3c, 0xf1c40f, 0x2ecc71]
-    random_color = chose_random_from_list(colors)
-
-
-
-    embed = Embed(title="🌎 GEOBOT 🐬", description='', color=random_color) 
-
-    embed.add_field(name=" ", value=" ", inline=True)
-    embed.add_field(name=" ", value=" ", inline=True)
-
-    embed.add_field(name="**TIMER**", value=str(0), inline=True)
-
-    #embed.add_field(name="**Catégories **", value=categorie, inline=True)
-    #embed.add_field(name="**Sous-Catégories**", value=sousCategorie, inline=True)
-    #embed.add_field(name="**Difficulté**", value=difficulty + "\n", inline=True)
-
-    embed.add_field(name="**Question**", value="```" + question + "```" , inline=False)
-
-    embed.add_field(name="A.", value=reponsesList[0] + "\n", inline=True)
-    embed.add_field(name="B.", value=reponsesList[1] + "\n", inline=False)
-    embed.add_field(name="C.", value=reponsesList[2] + "\n", inline=True)
-    embed.add_field(name="D.", value=reponsesList[3] + "\n", inline=False)
-
-
-
-    embed.set_image(url='attachment://image.jpg')
-        
-    # Création de l'objet File
-    file = File(image_path, filename='image.jpg')
-    return embed,file
 
 
 def r_just_string(string,size):
@@ -266,11 +233,10 @@ def score_calculation(reponse,temps,temps_max):
     if reponse == False:
         return transform_number_to_emoji_5_digits(0)
     else :
-        score = 1000 * (temps_max-temps)
+        score = 1000 * (temps_max - temps + 2)
         if score < 0 :
             score = 0
-        print(temps,score)
-        return transform_number_to_emoji_5_digits(1000 * (10-temps)) 
+        return transform_number_to_emoji_5_digits(score) 
 
 
 def add_question_answers_solution_to_db(question, reponsesList, solution):
@@ -322,137 +288,66 @@ def add_question_answers_solution_to_db(question, reponsesList, solution):
         writer.writerow([new_question_id, new_question_id, solution])
 
 
-def creation_embed_answer(solution,solutionList,temps_max):
-    
-    image_path = "images/bk.png"   
-    colors = [0x1abc9c, 0x3498db, 0x9b59b6, 0xe74c3c, 0xf1c40f, 0x2ecc71]
-    random_color = chose_random_from_list(colors)
+
+def can_execute_command():
+    global last_call_time
+    current_time = time.time()
+    if current_time - last_call_time < 60:
+        # Pas assez de temps s'est écoulé
+        return False
+    else:
+        # Assez de temps s'est écoulé, mettre à jour le temps du dernier appel
+        last_call_time = current_time
+        return True
 
 
 
-    embed = Embed(title="🌎 GEOBOT 🐬", description='', color=random_color)  # Vous pouvez changer la couleur
+def creation_question_answers_solutions(proba):
 
-
-    embed.add_field(name="**Solution**", value="```" + solution + "```" , inline=False)
-
-    embed.add_field(name="**Place**", value= " " , inline=True)
-    embed.add_field(name="**Nom**", value=" ", inline=True)
-    embed.add_field(name="**Score**", value=" " , inline=True)
-
-    index = 0
-    for nom,reponse,temps in solutionList:
+    if proba > random.random() :
             
-        index +=1
-        score = score_calculation(reponse,temps,temps_max)
-        reponseEmoji = "✅" if reponse == True else "❌"
-
-        embed.add_field(name=" ", value= f"{transform_number_to_emoji_2_digits(index)}" , inline=True)
-        embed.add_field(name=" ", value= f"{str(nom.name)}" , inline=True)
-        embed.add_field(name=" ", value= f"{score} " , inline=True)
-
-  
-    embed.set_image(url='attachment://image.jpg')
-        
-    # Création de l'objet File
-    file = File(image_path, filename='image.jpg')
-    return embed,file
+        ################################################################################################################
+        #categorie and diffuclty choice
+        categorieChosen, sousCategorieChosen = select_random_question_categorie_sous_categorie()
+        difficultyChosen = select_difficulty(None)
 
 
+        ################################################################################################################
+        # PROMPT CREATION
+        prompt = prompt_creation(categorieChosen,sousCategorieChosen,difficultyChosen)
 
-##################################################################################
-# CLASS
-##################################################################################
+        ################################################################################################################
+        #PROMPT TO AI
+        responseContent = prompt_to_chat_gpt_api(prompt)
 
-class MyView(discord.ui.View):
-    def __init__(self,reponsesList,solution,timer_value):
-        super().__init__()
+        ################################################################################################################
+        #LECTURE DU JSON
+        question , reponsesList , solution,temps = json_lecture(responseContent)
 
-
-        self.reponsesList = reponsesList
-        self.solution = solution
-        self.alreadyAnswered = set() 
-        self.listAnswer = []
-        self.start_time = datetime.datetime.now()
-        self.timer_value = timer_value
-
-        # Ajouter les boutons avec des styles différents
-        self.add_item(discord.ui.Button(style=discord.ButtonStyle.grey, custom_id=reponsesList[0], label="A"))
-        self.add_item(discord.ui.Button(style=discord.ButtonStyle.green, custom_id=reponsesList[1], label="B"))
-        self.add_item(discord.ui.Button(style=discord.ButtonStyle.blurple, custom_id=reponsesList[2], label="C"))
-        self.add_item(discord.ui.Button(style=discord.ButtonStyle.red, custom_id=reponsesList[3], label="D"))
-
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        
-        time_of_answer = datetime.datetime.now() - self.start_time
-        timer_value_delta = datetime.timedelta(seconds=self.timer_value)
-        """
-        if datetime.datetime.now() - self.start_time > timer_value_delta : 
-            return True
-        """
-        user_id = interaction.user.id
-        userName =  interaction.user
-
-        # Vérifier si l'utilisateur a déjà répondu
-        if user_id in self.alreadyAnswered:
-            await interaction.response.send_message("Vous avez déjà répondu à cette question", ephemeral=True)
-            return False
-
-        self.alreadyAnswered.add(user_id)  # Marquer l'utilisateur comme ayant répondu
-
-
-        response_time_seconds = time_of_answer.total_seconds()  # Temps de réponse en secondes
-
-        # Vérifier si la réponse est correcte
-        if interaction.data['custom_id'] == self.solution:
-            self.listAnswer.append([userName,True,response_time_seconds])
-            #await interaction.response.send_message(f"{userName} ✅ Bonne réponse! ✅", ephemeral=True)
-
-        else:
-            self.listAnswer.append([userName,False,response_time_seconds])
-                  
-                  
-        await interaction.response.send_message(f"Tu as voté {interaction.data['custom_id']} en {response_time_seconds - 1}s" , ephemeral=True)
-
-        return True
+        return question , reponsesList , solution , True
     
+    else : 
 
-class MyViewAnswer(discord.ui.View):
+        csvFilePath = 'bdd/questions.csv'
+        answerCsvFilePath = 'bdd/answers.csv'
+        solutionCsvFilePath = 'bdd/solution.csv'
 
-    def __init__(self,question,reponsesList,solution,timer_value):
-        super().__init__()
+        df = pd.read_csv(csvFilePath) 
+        answers_df = pd.read_csv(answerCsvFilePath)
+        dfSolution = pd.read_csv(solutionCsvFilePath)
 
-        self.question = question
-        self.reponsesList = reponsesList
-        self.solution = solution
-        self.start_time = datetime.datetime.now()
-        self.timer_value = timer_value
-      
-        self.add_item(discord.ui.Button(style=discord.ButtonStyle.green, custom_id="True", label="ADD"))
-        self.add_item(discord.ui.Button(style=discord.ButtonStyle.red, custom_id="False", label="DEL"))
+        random_row = df.sample().iloc[0]
 
-    def disable_all_buttons(self):
-        """Désactiver tous les boutons dans la vue."""
-        for item in self.children:
-            if isinstance(item, discord.ui.Button):
-                item.disabled = True
-                print(item)
-        print("eee")
+        # Selection la question et l'ID de la question
+        idQuestion = random_row['id']
+        question = random_row['question']
+
+        # Sélectionner les réponses pour l'ID de question trouvé précédemment
+        reponsesList = answers_df[answers_df['id_question'] == idQuestion]['answer'].tolist()
+
+        # Sélectionner les réponses pour l'ID de question trouvé précédemment
+        solution = dfSolution[dfSolution['id_question'] == idQuestion]['solution'].iloc[0]
+
+        return question , reponsesList , solution , False
 
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-
-        
-        if interaction.data['custom_id'] == "True":
-            add_question_answers_solution_to_db(self.question, self.reponsesList, self.solution)
-            self.disable_all_buttons()
-
-            await interaction.message.edit(view=self)
-            await interaction.response.send_message(f" ✅ Question ajoutée ✅", ephemeral=True)
-
-        else:
-            self.disable_all_buttons()
-            await interaction.message.edit(view=self)
-            await interaction.response.send_message(f"  Question nulle ", ephemeral=True)
-
-        return True

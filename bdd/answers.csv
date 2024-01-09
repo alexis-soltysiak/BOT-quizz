@@ -7,10 +7,6 @@ id,id_question,answer,answer_letter
 6,2,Volcom,B
 7,2,Vans,C
 8,2,DC Shoes,D
-9,3,Une méthode d'entrainement des réseaux de neurones artificiels.,A
-10,3,Un algorithme de recherche dans les jeux.,B
-11,3,Une technique de compression de données.,C
-12,3,Une approche de résolution de problèmes basée sur des essais successifs.,D
 13,4,Action,A
 14,4,Romance,B
 15,4,Comédie,C
@@ -19,3 +15,11 @@ id,id_question,answer,answer_letter
 18,5,Dégorger,B
 19,5,Chinoiser,C
 20,5,Mariner,D
+21,6,Mozart,A
+22,6,Beethoven,B
+23,6,Bach,C
+24,6,Haydn,D
+25,7,Bleach,A
+26,7,Nevermind,B
+27,7,In Utero,C
+28,7,Smells Like Teen Spirit,D

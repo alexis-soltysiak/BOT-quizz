@@ -23,9 +23,12 @@ from typing import Any
 import asyncio
 from discord import Embed, File, Button, ButtonStyle
 from discord.ui import View
+import time
 
 
+from views import *
 from functions import *
+from embed import *
 ##################################################################################
 # CONFIGURATION DOTENV
 ##################################################################################
@@ -62,6 +65,7 @@ bot.remove_command('help')
 ##################################################################################
 # DISCORD BOT EVENT
 ##################################################################################
+last_call_time = 0
 
 @bot.event
 async def on_ready():
@@ -71,41 +75,29 @@ async def on_ready():
 
 
 @bot.tree.command(name="question", description="question creation")
-async def slash_command_question(interaction: discord.Interaction):
+async def slash_command_question(interaction: discord.Interaction, newquestionproba : float):
 
+    ###############################################################################################################
+    #Time check
+    if not can_execute_command():
+        await interaction.response.send_message("Veuillez attendre une minute avant de réutiliser cette commande.")
+        return
+    
     await interaction.response.defer()
 
-
     ################################################################################################################
-    #categorie and diffuclty choice
-    categorieChosen, sousCategorieChosen = select_random_question_categorie_sous_categorie()
-    difficultyChosen = select_difficulty(None)
+    #choice question
+    question , reponsesList , solution , isNewQuestion =  creation_question_answers_solutions(newquestionproba)
 
-
-    ################################################################################################################
-    # PROMPT CREATION
-    prompt = prompt_creation(categorieChosen,sousCategorieChosen,difficultyChosen)
-
-
-    ################################################################################################################
-    #PROMPT TO AI
-    responseContent = prompt_to_chat_gpt_api(prompt)
-
-
-    ################################################################################################################
-    #LECTURE DU JSON
-    question , reponsesList , solution,temps = json_lecture(responseContent)
 
     if question : 
 
         timer_value = 10
 
         view = MyView(reponsesList,solution,timer_value)
+        viewAnswer = MyViewAnswer(question,reponsesList,solution,timer_value,isNewQuestion)
 
-        viewAnswer = MyViewAnswer(question,reponsesList,solution,timer_value)
-
-        embed,file = creation_embed(question,reponsesList,categorieChosen,sousCategorieChosen,difficultyChosen)
-
+        embed,file = creation_embed(question,reponsesList)
         message = await interaction.followup.send(embed=embed, view=view, file =file)
 
 
@@ -128,8 +120,6 @@ async def slash_command_question(interaction: discord.Interaction):
 
 
         solutionList = creation_results(view)
-
-        print("[INFO]")
 
         embed_answer,file = creation_embed_answer(solution,solutionList,timer_value)
 
